@@ -212,9 +212,9 @@ describe("predictRace", () => {
     const { wide } = result.bettingPlan;
 
     // favorite = 1番人気のハヤテオウジ。穴候補（4番人気以下）がいないので
-    // 残り2頭のうち実力スコアが高いキセキノホシが選ばれる。
+    // 残り2頭のうち実力スコアが高いサンライズホープ（不利補正込み）が選ばれる。
     expect(wide!.favorite.horseId).toBe("horse-hayate-oji");
-    expect(wide!.longshot.horseId).toBe("horse-kiseki-no-hoshi");
+    expect(wide!.longshot.horseId).toBe("horse-sunrise-hope");
   });
 
   it("has no trio pick with fewer than 3 ranked entrants", () => {

@@ -41,7 +41,10 @@ export default function RaceDetailTable({
               <td>
                 {pp.finishPosition}着 / {pp.numRunners}頭
               </td>
-              <td>{pp.marginLengths.toFixed(1)}</td>
+              <td>
+                {pp.finishPosition === 1 ? "+" : ""}
+                {pp.marginLengths.toFixed(1)}
+              </td>
               <td>{rawScore.toFixed(1)}</td>
               <td>
                 {adjustedScore.toFixed(1)}

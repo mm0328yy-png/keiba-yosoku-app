@@ -11,6 +11,30 @@ import type { PastPerformance } from "@/types/race";
 const boxedInLoss: PastPerformance = samplePastPerformances[0];
 const cleanRun: PastPerformance = samplePastPerformances[2];
 
+const MAX_SCORE = 110;
+
+describe("rawPerformanceScore", () => {
+  it("gives a narrow win a score right at 100", () => {
+    const narrowWin: PastPerformance = { ...cleanRun, finishPosition: 1, marginLengths: 0 };
+    expect(rawPerformanceScore(narrowWin)).toBe(100);
+  });
+
+  it("rewards a dominant win above 100, unlike a narrow win", () => {
+    const narrowWin: PastPerformance = { ...cleanRun, finishPosition: 1, marginLengths: 0.1 };
+    const dominantWin: PastPerformance = { ...cleanRun, finishPosition: 1, marginLengths: 5 };
+    expect(rawPerformanceScore(dominantWin)).toBeGreaterThan(rawPerformanceScore(narrowWin));
+  });
+
+  it("caps the win bonus at MAX_SCORE for an extreme margin", () => {
+    const hugeWin: PastPerformance = { ...cleanRun, finishPosition: 1, marginLengths: 50 };
+    expect(rawPerformanceScore(hugeWin)).toBe(MAX_SCORE);
+  });
+
+  it("still penalizes a loss the same way regardless of the new win bonus", () => {
+    expect(rawPerformanceScore(cleanRun)).toBeLessThan(100);
+  });
+});
+
 describe("adjustedPerformanceScore", () => {
   it("keeps score unchanged when there is no trouble", () => {
     expect(adjustedPerformanceScore(cleanRun)).toBe(rawPerformanceScore(cleanRun));
@@ -22,7 +46,7 @@ describe("adjustedPerformanceScore", () => {
     expect(adjusted).toBeGreaterThan(raw);
   });
 
-  it("never exceeds 100 even with extreme trouble credit", () => {
+  it("never exceeds MAX_SCORE even with extreme trouble credit", () => {
     const extreme: PastPerformance = {
       ...boxedInLoss,
       marginLengths: 0,
@@ -31,7 +55,7 @@ describe("adjustedPerformanceScore", () => {
         { kind: "bumped", severity: 5, phase: "stretch" },
       ],
     };
-    expect(adjustedPerformanceScore(extreme)).toBeLessThanOrEqual(100);
+    expect(adjustedPerformanceScore(extreme)).toBeLessThanOrEqual(MAX_SCORE);
   });
 });
 

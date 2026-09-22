@@ -7,6 +7,16 @@ import type { PastPerformance, TroubleEvent, TroublePhase, TroubleSeverity } fro
 const POINTS_PER_LENGTH = 2;
 
 /**
+ * 1着馬の「勝ち馬身差」1馬身あたりの加点。
+ * 僅差の勝利と圧勝を区別するためのボーナスで、これが無いと「勝った馬は一律100点」に
+ * なってしまい、際どい勝利と圧勝が同じ評価になってしまう。
+ */
+const WIN_MARGIN_BONUS_PER_LENGTH = 1;
+
+/** 圧勝でも際限なく加点されないための上限スコア */
+const MAX_SCORE = 110;
+
+/**
  * 不利の深刻度（1〜5）ごとの回復ポイント。
  * 数字が上がるほど「本来の力を発揮できなかった度合い」が大きいとみなし、
  * 非線形（凸型）に重み付けする。
@@ -41,22 +51,30 @@ export function totalTroubleCredit(troubles: TroubleEvent[]): number {
 }
 
 /**
- * 着順・着差だけを見た「額面どおりの走破内容スコア」（0〜100）。
+ * 着順・着差だけを見た「額面どおりの走破内容スコア」（0〜MAX_SCORE）。
  * 不利は一切考慮しない、レース結果の見たままの評価。
+ *
+ * 1着の場合、marginLengths は「2着馬に勝った差」として扱い、圧勝ほど加点する
+ * （100点を最低ラインに、僅差の勝利は100点付近、圧勝は100点超になる）。
+ * 2着以下の場合は従来どおり、着差が大きいほど減点する。
  */
 export function rawPerformanceScore(pp: PastPerformance): number {
+  if (pp.finishPosition === 1) {
+    const score = 100 + pp.marginLengths * WIN_MARGIN_BONUS_PER_LENGTH;
+    return clamp(score, 100, MAX_SCORE);
+  }
   const score = 100 - pp.marginLengths * POINTS_PER_LENGTH;
   return clamp(score, 0, 100);
 }
 
 /**
- * 不利を加味した「真の実力スコア」（0〜100）。
+ * 不利を加味した「真の実力スコア」（0〜MAX_SCORE）。
  * 前が詰まった・出遅れたなどで発揮できなかった分を加点で補正する。
  */
 export function adjustedPerformanceScore(pp: PastPerformance): number {
   const raw = rawPerformanceScore(pp);
   const credit = totalTroubleCredit(pp.troubles);
-  return clamp(raw + credit, 0, 100);
+  return clamp(raw + credit, 0, MAX_SCORE);
 }
 
 export interface PastPerformanceAnalysis {
@@ -75,7 +93,7 @@ const UNLUCKY_LOSS_MIN_FINISH_POSITION = 4;
 export function analyzePastPerformance(pp: PastPerformance): PastPerformanceAnalysis {
   const rawScore = rawPerformanceScore(pp);
   const luckAdjustment = totalTroubleCredit(pp.troubles);
-  const adjustedScore = clamp(rawScore + luckAdjustment, 0, 100);
+  const adjustedScore = clamp(rawScore + luckAdjustment, 0, MAX_SCORE);
   const isUnluckyLoss =
     luckAdjustment >= UNLUCKY_LOSS_CREDIT_THRESHOLD &&
     pp.finishPosition >= UNLUCKY_LOSS_MIN_FINISH_POSITION;

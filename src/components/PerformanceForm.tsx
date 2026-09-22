@@ -144,7 +144,7 @@ export default function PerformanceForm({ onAdd }: { onAdd: (pp: PastPerformance
           />
         </label>
         <label>
-          着差(馬身)
+          {form.finishPosition === "1" ? "勝ち馬身差(2着との差)" : "着差(馬身)"}
           <input
             type="number"
             step="0.1"
