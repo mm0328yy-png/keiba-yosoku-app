@@ -69,7 +69,7 @@ export default function RacePredictor({ performances }: { performances: PastPerf
 
       <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 4 }}>
         出走する馬を選んでください（2頭以上）。人気（何番人気か）も入力すると、
-        「本命1頭 + 穴馬1頭」で回収率重視のワイドを提案します。
+        単勝・複勝・ワイド・3連複それぞれの買い目を回収率重視で提案します。
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
         {uniqueHorses.map((h) => (
@@ -139,25 +139,37 @@ export default function RacePredictor({ performances }: { performances: PastPerf
             </p>
           )}
 
-          {prediction.widePick && (
-            <div
-              style={{
-                marginTop: 16,
-                padding: 16,
-                border: "1px solid var(--accent)",
-                borderRadius: 8,
-                background: "rgba(79,140,255,0.08)",
-              }}
-            >
-              <strong>
-                {raceName ? `${raceName} の` : ""}本命×穴 ワイド候補: {prediction.widePick.favorite.horseName} −{" "}
-                {prediction.widePick.longshot.horseName}
-              </strong>
-              <p style={{ margin: "6px 0 0", fontSize: 14, color: "var(--muted)" }}>
-                {prediction.widePick.reason}
-              </p>
-            </div>
-          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
+            {raceName && <strong>{raceName} の買い目候補</strong>}
+            {prediction.bettingPlan.win && (
+              <BetCard
+                title="単勝"
+                label={prediction.bettingPlan.win.horse.horseName}
+                reason={prediction.bettingPlan.win.reason}
+              />
+            )}
+            {prediction.bettingPlan.place && (
+              <BetCard
+                title="複勝"
+                label={prediction.bettingPlan.place.horse.horseName}
+                reason={prediction.bettingPlan.place.reason}
+              />
+            )}
+            {prediction.bettingPlan.wide && (
+              <BetCard
+                title="ワイド"
+                label={`${prediction.bettingPlan.wide.favorite.horseName} − ${prediction.bettingPlan.wide.longshot.horseName}`}
+                reason={prediction.bettingPlan.wide.reason}
+              />
+            )}
+            {prediction.bettingPlan.trio && (
+              <BetCard
+                title="3連複"
+                label={prediction.bettingPlan.trio.horses.map((h) => h.horseName).join(" − ")}
+                reason={prediction.bettingPlan.trio.reason}
+              />
+            )}
+          </div>
 
           {prediction.notes.length > 0 && (
             <ul style={{ marginTop: 12, fontSize: 14, color: "var(--muted)" }}>
@@ -168,6 +180,24 @@ export default function RacePredictor({ performances }: { performances: PastPerf
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function BetCard({ title, label, reason }: { title: string; label: string; reason: string }) {
+  return (
+    <div
+      style={{
+        padding: 16,
+        border: "1px solid var(--accent)",
+        borderRadius: 8,
+        background: "rgba(79,140,255,0.08)",
+      }}
+    >
+      <strong>
+        {title}: {label}
+      </strong>
+      <p style={{ margin: "6px 0 0", fontSize: 14, color: "var(--muted)" }}>{reason}</p>
     </div>
   );
 }
