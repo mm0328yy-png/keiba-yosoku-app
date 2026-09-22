@@ -7,6 +7,7 @@ import type { PastPerformance } from "@/types/race";
 import PerformanceForm from "@/components/PerformanceForm";
 import HorseSummaryTable from "@/components/HorseSummaryTable";
 import RaceDetailTable from "@/components/RaceDetailTable";
+import RacePredictor from "@/components/RacePredictor";
 
 export default function Dashboard() {
   const [performances, setPerformances] = useState<PastPerformance[]>(samplePastPerformances);
@@ -23,6 +24,11 @@ export default function Dashboard() {
 
   return (
     <>
+      <section>
+        <h2>レース予想（ワイド候補を出す）</h2>
+        <RacePredictor performances={performances} />
+      </section>
+
       <section>
         <h2>馬ごとの実力サマリー（不利補正後）</h2>
         <HorseSummaryTable summaries={summaries} />
