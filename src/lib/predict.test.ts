@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { predictRace } from "@/lib/predict";
+import { predictRace, widePairKey } from "@/lib/predict";
 import { samplePastPerformances } from "@/lib/sampleData";
 
 const nameById = new Map(samplePastPerformances.map((pp) => [pp.horseId, pp.horseName]));
@@ -98,6 +98,67 @@ describe("predictRace", () => {
 
     expect(wide!.longshot.horseId).toBe("horse-sunrise-hope");
     expect(result.notes.some((n) => n.includes("ワイドの穴も"))).toBe(true);
+  });
+
+  it("prefers a real wide-odds combo over the odds/popularity estimate", () => {
+    const popularity = new Map([
+      ["horse-kiseki-no-hoshi", 1],
+      ["horse-hayate-oji", 2],
+      ["horse-sunrise-hope", 5],
+    ]);
+    const wideOdds = new Map([
+      [widePairKey("horse-kiseki-no-hoshi", "horse-hayate-oji"), 3.0],
+      [widePairKey("horse-kiseki-no-hoshi", "horse-sunrise-hope"), 9.0],
+      [widePairKey("horse-hayate-oji", "horse-sunrise-hope"), 15.0],
+    ]);
+
+    const result = predictRace(
+      ENTRANTS,
+      nameById,
+      samplePastPerformances,
+      popularity,
+      new Map(),
+      wideOdds
+    );
+    const { wide } = result.bettingPlan;
+
+    // 8倍以上の組み合わせのうち合計実力スコアが最も高いのはハヤテオウジ+サンライズホープ(15.0倍)
+    expect(wide!.favorite.horseId).toBe("horse-hayate-oji");
+    expect(wide!.longshot.horseId).toBe("horse-sunrise-hope");
+    expect(wide!.reason).toContain("実際のワイドオッズ15.0倍");
+  });
+
+  it("falls back to the odds/popularity estimate when no real wide-odds combo reaches 8倍", () => {
+    const popularity = new Map([
+      ["horse-kiseki-no-hoshi", 1],
+      ["horse-hayate-oji", 2],
+      ["horse-sunrise-hope", 5],
+    ]);
+    // 実際の4-5のワイドが4.5倍だった、というような現実のケースを想定
+    const wideOdds = new Map([
+      [widePairKey("horse-kiseki-no-hoshi", "horse-hayate-oji"), 2.0],
+      [widePairKey("horse-kiseki-no-hoshi", "horse-sunrise-hope"), 4.5],
+      [widePairKey("horse-hayate-oji", "horse-sunrise-hope"), 6.0],
+    ]);
+
+    const result = predictRace(
+      ENTRANTS,
+      nameById,
+      samplePastPerformances,
+      popularity,
+      new Map(),
+      wideOdds
+    );
+    const { wide } = result.bettingPlan;
+
+    expect(wide!.reason).toContain("単勝オッズからの推定");
+    expect(
+      result.notes.some((n) => n.includes("入力されたワイドオッズの中に8倍以上の組み合わせがなかった"))
+    ).toBe(true);
+  });
+
+  it("widePairKey is order-independent", () => {
+    expect(widePairKey("a", "b")).toBe(widePairKey("b", "a"));
   });
 
   it("falls back to the best-scoring non-favorite when nobody is 4番人気以下", () => {

@@ -1,14 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { predictRace } from "@/lib/predict";
+import { predictRace, widePairKey } from "@/lib/predict";
 import type { PastPerformance } from "@/types/race";
+
+interface WideOddsEntry {
+  horseIdA: string;
+  horseIdB: string;
+  odds: number;
+}
 
 export default function RacePredictor({ performances }: { performances: PastPerformance[] }) {
   const [raceName, setRaceName] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [popularity, setPopularity] = useState<Map<string, number>>(new Map());
   const [odds, setOdds] = useState<Map<string, number>>(new Map());
+  const [wideOddsEntries, setWideOddsEntries] = useState<WideOddsEntry[]>([]);
 
   const uniqueHorses = useMemo(() => {
     const map = new Map<string, string>();
@@ -51,10 +58,32 @@ export default function RacePredictor({ performances }: { performances: PastPerf
     });
   };
 
+  const addWideOdds = (horseIdA: string, horseIdB: string, oddsValue: number) => {
+    if (!horseIdA || !horseIdB || horseIdA === horseIdB || Number.isNaN(oddsValue)) return;
+    setWideOddsEntries((prev) => [
+      ...prev.filter((e) => widePairKey(e.horseIdA, e.horseIdB) !== widePairKey(horseIdA, horseIdB)),
+      { horseIdA, horseIdB, odds: oddsValue },
+    ]);
+  };
+
+  const removeWideOdds = (index: number) => {
+    setWideOddsEntries((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const wideOddsByPair = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of wideOddsEntries) {
+      if (selected.has(e.horseIdA) && selected.has(e.horseIdB)) {
+        m.set(widePairKey(e.horseIdA, e.horseIdB), e.odds);
+      }
+    }
+    return m;
+  }, [wideOddsEntries, selected]);
+
   const prediction = useMemo(() => {
     if (selected.size < 2) return null;
-    return predictRace(Array.from(selected), nameById, performances, popularity, odds);
-  }, [selected, nameById, performances, popularity, odds]);
+    return predictRace(Array.from(selected), nameById, performances, popularity, odds, wideOddsByPair);
+  }, [selected, nameById, performances, popularity, odds, wideOddsByPair]);
 
   if (uniqueHorses.length === 0) {
     return <p>まず下のフォームから馬の前走データを登録してください。</p>;
@@ -123,6 +152,15 @@ export default function RacePredictor({ performances }: { performances: PastPerf
           </div>
         ))}
       </div>
+
+      {selected.size >= 2 && (
+        <WideOddsInput
+          horses={uniqueHorses.filter((h) => selected.has(h.horseId))}
+          entries={wideOddsEntries}
+          onAdd={addWideOdds}
+          onRemove={removeWideOdds}
+        />
+      )}
 
       {prediction && (
         <div>
@@ -197,6 +235,85 @@ export default function RacePredictor({ performances }: { performances: PastPerf
             </ul>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+function WideOddsInput({
+  horses,
+  entries,
+  onAdd,
+  onRemove,
+}: {
+  horses: { horseId: string; horseName: string }[];
+  entries: WideOddsEntry[];
+  onAdd: (horseIdA: string, horseIdB: string, odds: number) => void;
+  onRemove: (index: number) => void;
+}) {
+  const [horseIdA, setHorseIdA] = useState("");
+  const [horseIdB, setHorseIdB] = useState("");
+  const [oddsInput, setOddsInput] = useState("");
+
+  const nameById = new Map(horses.map((h) => [h.horseId, h.horseName]));
+
+  const handleAdd = () => {
+    const value = Number(oddsInput);
+    if (!horseIdA || !horseIdB || horseIdA === horseIdB || Number.isNaN(value)) return;
+    onAdd(horseIdA, horseIdB, value);
+    setOddsInput("");
+  };
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 8 }}>
+        分かる組み合わせだけでOK: 実際のワイドオッズを入力すると、単勝オッズ・人気からの推定より
+        優先してワイドの買い目に使います。
+      </p>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <select value={horseIdA} onChange={(e) => setHorseIdA(e.target.value)}>
+          <option value="">馬を選択</option>
+          {horses.map((h) => (
+            <option key={h.horseId} value={h.horseId}>
+              {h.horseName}
+            </option>
+          ))}
+        </select>
+        <span>−</span>
+        <select value={horseIdB} onChange={(e) => setHorseIdB(e.target.value)}>
+          <option value="">馬を選択</option>
+          {horses.map((h) => (
+            <option key={h.horseId} value={h.horseId}>
+              {h.horseName}
+            </option>
+          ))}
+        </select>
+        <input
+          type="number"
+          min={1}
+          step="0.1"
+          placeholder="ワイドオッズ"
+          value={oddsInput}
+          onChange={(e) => setOddsInput(e.target.value)}
+          style={{ width: 100 }}
+        />
+        <button type="button" className="secondary" onClick={handleAdd}>
+          追加
+        </button>
+      </div>
+
+      {entries.length > 0 && (
+        <ul style={{ marginTop: 8, fontSize: 14 }}>
+          {entries.map((e, i) => (
+            <li key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {nameById.get(e.horseIdA) ?? e.horseIdA} − {nameById.get(e.horseIdB) ?? e.horseIdB}:{" "}
+              {e.odds.toFixed(1)}倍
+              <button type="button" className="danger" onClick={() => onRemove(i)}>
+                削除
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
