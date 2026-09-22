@@ -109,9 +109,7 @@ export default function RacePredictor({
       </label>
 
       <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 4 }}>
-        出走する馬を選んでください（2頭以上）。人気（何番人気か）だけでも単勝・複勝・3連複を提案しますが、
-        単勝オッズも入力すると単勝・複勝は<strong>10倍以上</strong>、ワイドの穴は<strong>8倍以上</strong>
-        のゾーンから、回収率重視で選ぶようになります。
+        出走する馬を2頭以上選んでください。人気・オッズも入力すると、より精度の高い買い目が出ます。
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
         {uniqueHorses.map((h) => (
@@ -162,48 +160,20 @@ export default function RacePredictor({
       </div>
 
       {selected.size >= 2 && (
-        <WideOddsInput
-          horses={uniqueHorses.filter((h) => selected.has(h.horseId))}
-          entries={wideOddsEntries}
-          onAdd={addWideOdds}
-          onRemove={removeWideOdds}
-        />
+        <details style={{ marginBottom: 20 }}>
+          <summary>実際のワイドオッズが分かれば入力する（任意）</summary>
+          <WideOddsInput
+            horses={uniqueHorses.filter((h) => selected.has(h.horseId))}
+            entries={wideOddsEntries}
+            onAdd={addWideOdds}
+            onRemove={removeWideOdds}
+          />
+        </details>
       )}
 
       {prediction && (
         <div>
-          <table>
-            <thead>
-              <tr>
-                <th>順位</th>
-                <th>馬名</th>
-                <th>人気</th>
-                <th>単勝オッズ</th>
-                <th>真の実力スコア</th>
-                <th>不利補正</th>
-              </tr>
-            </thead>
-            <tbody>
-              {prediction.ranked.map((s, i) => (
-                <tr key={s.horseId}>
-                  <td>{i + 1}</td>
-                  <td>{s.horseName}</td>
-                  <td>{popularity.get(s.horseId) ?? "―"}</td>
-                  <td>{odds.get(s.horseId) ?? "―"}</td>
-                  <td>{s.avgAdjustedScore.toFixed(1)}</td>
-                  <td>{s.avgLuckAdjustment > 0 ? `+${s.avgLuckAdjustment.toFixed(1)}` : "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {prediction.noDataHorseNames.length > 0 && (
-            <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 8 }}>
-              データなし（判定対象外）: {prediction.noDataHorseNames.join(", ")}
-            </p>
-          )}
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {raceName && <strong>{raceName} の買い目候補</strong>}
             <SaveButton raceName={raceName} bettingPlan={prediction.bettingPlan} onSave={onSavePrediction} />
             {prediction.bettingPlan.win && (
@@ -243,6 +213,40 @@ export default function RacePredictor({
               ))}
             </ul>
           )}
+
+          <details style={{ marginTop: 20 }}>
+            <summary>全頭のスコア表を見る</summary>
+            <table>
+              <thead>
+                <tr>
+                  <th>順位</th>
+                  <th>馬名</th>
+                  <th>人気</th>
+                  <th>単勝オッズ</th>
+                  <th>真の実力スコア</th>
+                  <th>不利補正</th>
+                </tr>
+              </thead>
+              <tbody>
+                {prediction.ranked.map((s, i) => (
+                  <tr key={s.horseId}>
+                    <td>{i + 1}</td>
+                    <td>{s.horseName}</td>
+                    <td>{popularity.get(s.horseId) ?? "―"}</td>
+                    <td>{odds.get(s.horseId) ?? "―"}</td>
+                    <td>{s.avgAdjustedScore.toFixed(1)}</td>
+                    <td>{s.avgLuckAdjustment > 0 ? `+${s.avgLuckAdjustment.toFixed(1)}` : "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {prediction.noDataHorseNames.length > 0 && (
+              <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 8 }}>
+                データなし（判定対象外）: {prediction.noDataHorseNames.join(", ")}
+              </p>
+            )}
+          </details>
         </div>
       )}
     </div>

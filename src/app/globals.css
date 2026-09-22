@@ -166,3 +166,37 @@ button.danger {
   color: #ff8080;
   padding: 6px 10px;
 }
+
+details {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+details summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+details summary::-webkit-details-marker {
+  display: none;
+}
+
+details summary::before {
+  content: "▸ ";
+  color: var(--accent);
+}
+
+details[open] summary::before {
+  content: "▾ ";
+}
+
+details[open] summary {
+  margin-bottom: 14px;
+}
+
+details > *:last-child {
+  margin-bottom: 0;
+}

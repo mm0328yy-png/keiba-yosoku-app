@@ -65,18 +65,24 @@ export default function Dashboard() {
       </section>
 
       <section>
-        <h2>馬ごとの実力サマリー（不利補正後）</h2>
-        <HorseSummaryTable summaries={summaries} />
+        <details>
+          <summary>前走データを入力・編集する</summary>
+          <div style={{ marginBottom: 24 }}>
+            <h3 style={{ fontSize: 15, marginBottom: 12 }}>新しい前走成績を追加</h3>
+            <PerformanceForm onAdd={handleAdd} />
+          </div>
+          <div>
+            <h3 style={{ fontSize: 15, marginBottom: 12 }}>登録済みの前走データ</h3>
+            <RaceDetailTable performances={performances} onRemove={handleRemove} />
+          </div>
+        </details>
       </section>
 
       <section>
-        <h2>前走の成績を追加する</h2>
-        <PerformanceForm onAdd={handleAdd} />
-      </section>
-
-      <section>
-        <h2>登録済みの前走データ</h2>
-        <RaceDetailTable performances={performances} onRemove={handleRemove} />
+        <details>
+          <summary>馬ごとのスコア詳細を見る</summary>
+          <HorseSummaryTable summaries={summaries} />
+        </details>
       </section>
     </>
   );
