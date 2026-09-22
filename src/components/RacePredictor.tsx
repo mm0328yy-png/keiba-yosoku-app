@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { predictRace, widePairKey } from "@/lib/predict";
+import { predictRace, widePairKey, type BettingPlan } from "@/lib/predict";
+import { createPredictionRecord, type PredictionRecord } from "@/lib/predictionLog";
 import type { PastPerformance } from "@/types/race";
 
 interface WideOddsEntry {
@@ -10,7 +11,13 @@ interface WideOddsEntry {
   odds: number;
 }
 
-export default function RacePredictor({ performances }: { performances: PastPerformance[] }) {
+export default function RacePredictor({
+  performances,
+  onSavePrediction,
+}: {
+  performances: PastPerformance[];
+  onSavePrediction: (record: PredictionRecord) => void;
+}) {
   const [raceName, setRaceName] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [popularity, setPopularity] = useState<Map<string, number>>(new Map());
@@ -197,6 +204,7 @@ export default function RacePredictor({ performances }: { performances: PastPerf
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
             {raceName && <strong>{raceName} の買い目候補</strong>}
+            <SaveButton raceName={raceName} bettingPlan={prediction.bettingPlan} onSave={onSavePrediction} />
             {prediction.bettingPlan.win && (
               <BetCard
                 title="単勝"
@@ -316,6 +324,30 @@ function WideOddsInput({
         </ul>
       )}
     </div>
+  );
+}
+
+function SaveButton({
+  raceName,
+  bettingPlan,
+  onSave,
+}: {
+  raceName: string;
+  bettingPlan: BettingPlan;
+  onSave: (record: PredictionRecord) => void;
+}) {
+  const [saved, setSaved] = useState(false);
+
+  const handleClick = () => {
+    onSave(createPredictionRecord(raceName, bettingPlan));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <button type="button" className="secondary" onClick={handleClick} style={{ width: "fit-content" }}>
+      {saved ? "記録しました" : "この予想を記録する"}
+    </button>
   );
 }
 
