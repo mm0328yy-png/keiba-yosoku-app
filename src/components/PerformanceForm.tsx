@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import {
+  RACE_GRADE_LABELS,
+  RACE_GRADE_ORDER,
   TROUBLE_KIND_LABELS,
   TROUBLE_PHASE_LABELS,
   type PastPerformance,
+  type RaceGrade,
   type TroubleEvent,
   type TroubleKind,
   type TroublePhase,
@@ -22,6 +25,7 @@ interface FormState {
   raceName: string;
   track: string;
   surface: "turf" | "dirt";
+  raceGrade: RaceGrade;
   distanceMeters: string;
   numRunners: string;
   finishPosition: string;
@@ -34,6 +38,7 @@ const initialFormState: FormState = {
   raceName: "",
   track: "",
   surface: "turf",
+  raceGrade: "class1",
   distanceMeters: "2000",
   numRunners: "16",
   finishPosition: "1",
@@ -68,6 +73,7 @@ export default function PerformanceForm({ onAdd }: { onAdd: (pp: PastPerformance
       raceName: form.raceName.trim(),
       track: form.track.trim(),
       surface: form.surface,
+      raceGrade: form.raceGrade,
       distanceMeters: Number(form.distanceMeters) || 0,
       numRunners: Number(form.numRunners) || 1,
       finishPosition: Number(form.finishPosition) || 1,
@@ -117,6 +123,16 @@ export default function PerformanceForm({ onAdd }: { onAdd: (pp: PastPerformance
           <select value={form.surface} onChange={(e) => update("surface", e.target.value as "turf" | "dirt")}>
             <option value="turf">芝</option>
             <option value="dirt">ダート</option>
+          </select>
+        </label>
+        <label>
+          クラス
+          <select value={form.raceGrade} onChange={(e) => update("raceGrade", e.target.value as RaceGrade)}>
+            {RACE_GRADE_ORDER.map((grade) => (
+              <option key={grade} value={grade}>
+                {RACE_GRADE_LABELS[grade]}
+              </option>
+            ))}
           </select>
         </label>
         <label>

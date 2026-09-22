@@ -1,5 +1,5 @@
 import { analyzePastPerformance } from "@/lib/analysis";
-import { TROUBLE_KIND_LABELS, TROUBLE_PHASE_LABELS } from "@/types/race";
+import { RACE_GRADE_LABELS, TROUBLE_KIND_LABELS, TROUBLE_PHASE_LABELS } from "@/types/race";
 import type { PastPerformance } from "@/types/race";
 
 export default function RaceDetailTable({
@@ -21,6 +21,7 @@ export default function RaceDetailTable({
         <tr>
           <th>日付</th>
           <th>レース</th>
+          <th>クラス</th>
           <th>馬名</th>
           <th>着順</th>
           <th>着差</th>
@@ -37,6 +38,7 @@ export default function RaceDetailTable({
             <tr key={pp.id}>
               <td>{pp.raceDate}</td>
               <td>{pp.raceName}</td>
+              <td>{RACE_GRADE_LABELS[pp.raceGrade]}</td>
               <td>{pp.horseName}</td>
               <td>
                 {pp.finishPosition}着 / {pp.numRunners}頭

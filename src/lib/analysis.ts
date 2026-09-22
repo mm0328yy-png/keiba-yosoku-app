@@ -1,4 +1,4 @@
-import type { PastPerformance, TroubleEvent, TroublePhase, TroubleSeverity } from "@/types/race";
+import type { PastPerformance, RaceGrade, TroubleEvent, TroublePhase, TroubleSeverity } from "@/types/race";
 
 /**
  * 着差1馬身あたりの減点。値が大きいほど「着差が大きい=実力差」とみなす度合いが強くなる。
@@ -13,8 +13,26 @@ const POINTS_PER_LENGTH = 2;
  */
 const WIN_MARGIN_BONUS_PER_LENGTH = 1;
 
-/** 圧勝でも際限なく加点されないための上限スコア */
-const MAX_SCORE = 110;
+/**
+ * レースのレベルによる加減点。着差だけでは「どんなメンバーと走ったか」が分からないため、
+ * 地方競馬・未勝利〜G1まで、レベルが上がるほど同じ着差でも高く評価する
+ * （逆にレベルが低いレースでの好走は割り引く）。1勝クラスを基準(0点)にしている。
+ */
+const RACE_GRADE_ADJUSTMENT: Record<RaceGrade, number> = {
+  chihou: -5,
+  shinba: -3,
+  mishoyuri: -2,
+  class1: 0,
+  class2: 2,
+  class3: 4,
+  open: 6,
+  g3: 8,
+  g2: 10,
+  g1: 12,
+};
+
+/** 圧勝・高レベル戦でも際限なく加点されないための上限スコア */
+const MAX_SCORE = 130;
 
 /**
  * 不利の深刻度（1〜5）ごとの回復ポイント。
@@ -51,20 +69,23 @@ export function totalTroubleCredit(troubles: TroubleEvent[]): number {
 }
 
 /**
- * 着順・着差だけを見た「額面どおりの走破内容スコア」（0〜MAX_SCORE）。
+ * 着順・着差・レースレベルを見た「額面どおりの走破内容スコア」（0〜MAX_SCORE）。
  * 不利は一切考慮しない、レース結果の見たままの評価。
  *
  * 1着の場合、marginLengths は「2着馬に勝った差」として扱い、圧勝ほど加点する
- * （100点を最低ラインに、僅差の勝利は100点付近、圧勝は100点超になる）。
+ * （これが無いと勝った馬が一律100点になり、僅差の勝利と圧勝を区別できない）。
  * 2着以下の場合は従来どおり、着差が大きいほど減点する。
+ * さらに raceGrade に応じた加減点（地方競馬やレベルの低いクラスは割り引き、
+ * オープン・重賞は上乗せ）を加える。
  */
 export function rawPerformanceScore(pp: PastPerformance): number {
-  if (pp.finishPosition === 1) {
-    const score = 100 + pp.marginLengths * WIN_MARGIN_BONUS_PER_LENGTH;
-    return clamp(score, 100, MAX_SCORE);
-  }
-  const score = 100 - pp.marginLengths * POINTS_PER_LENGTH;
-  return clamp(score, 0, 100);
+  const finishScore =
+    pp.finishPosition === 1
+      ? 100 + pp.marginLengths * WIN_MARGIN_BONUS_PER_LENGTH
+      : 100 - pp.marginLengths * POINTS_PER_LENGTH;
+
+  const score = finishScore + RACE_GRADE_ADJUSTMENT[pp.raceGrade];
+  return clamp(score, 0, MAX_SCORE);
 }
 
 /**
