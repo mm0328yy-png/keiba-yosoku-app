@@ -44,6 +44,46 @@ describe("predictRace", () => {
     expect(trio!.horses).toHaveLength(3);
   });
 
+  it("picks the wide longshot from the 8〜10倍 odds zone even when it differs from the win/place pick", () => {
+    const popularity = new Map([
+      ["horse-kiseki-no-hoshi", 1],
+      ["horse-hayate-oji", 2],
+      ["horse-sunrise-hope", 5],
+    ]);
+    // サンライズホープは4番人気以下プールで単複の穴になるが、オッズは圏外。
+    // ハヤテオウジは2番人気でも、オッズだけ見ると8〜10倍ゾーンに入っている想定。
+    const odds = new Map([
+      ["horse-hayate-oji", 9.0],
+      ["horse-sunrise-hope", 15.0],
+    ]);
+
+    const result = predictRace(ENTRANTS, nameById, samplePastPerformances, popularity, odds);
+    const { win, place, wide } = result.bettingPlan;
+
+    expect(win!.horse.horseId).toBe("horse-sunrise-hope");
+    expect(place!.horse.horseId).toBe("horse-sunrise-hope");
+    expect(wide!.longshot.horseId).toBe("horse-hayate-oji");
+    expect(wide!.reason).toContain("単勝9.0倍");
+  });
+
+  it("falls back to the popularity-based pool when nobody's odds land in 8〜10倍", () => {
+    const popularity = new Map([
+      ["horse-kiseki-no-hoshi", 1],
+      ["horse-hayate-oji", 2],
+      ["horse-sunrise-hope", 5],
+    ]);
+    const odds = new Map([
+      ["horse-hayate-oji", 3.0],
+      ["horse-sunrise-hope", 25.0],
+    ]);
+
+    const result = predictRace(ENTRANTS, nameById, samplePastPerformances, popularity, odds);
+    const { wide } = result.bettingPlan;
+
+    expect(wide!.longshot.horseId).toBe("horse-sunrise-hope");
+    expect(result.notes.some((n) => n.includes("ワイドの穴も"))).toBe(true);
+  });
+
   it("falls back to the best-scoring non-favorite when nobody is 4番人気以下", () => {
     const popularity = new Map([
       ["horse-hayate-oji", 1],

@@ -8,6 +8,7 @@ export default function RacePredictor({ performances }: { performances: PastPerf
   const [raceName, setRaceName] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [popularity, setPopularity] = useState<Map<string, number>>(new Map());
+  const [odds, setOdds] = useState<Map<string, number>>(new Map());
 
   const uniqueHorses = useMemo(() => {
     const map = new Map<string, string>();
@@ -33,8 +34,12 @@ export default function RacePredictor({ performances }: { performances: PastPerf
     });
   };
 
-  const setHorsePopularity = (horseId: string, value: string) => {
-    setPopularity((prev) => {
+  const setNumericField = (
+    setter: React.Dispatch<React.SetStateAction<Map<string, number>>>,
+    horseId: string,
+    value: string
+  ) => {
+    setter((prev) => {
       const next = new Map(prev);
       const num = Number(value);
       if (value === "" || Number.isNaN(num)) {
@@ -48,8 +53,8 @@ export default function RacePredictor({ performances }: { performances: PastPerf
 
   const prediction = useMemo(() => {
     if (selected.size < 2) return null;
-    return predictRace(Array.from(selected), nameById, performances, popularity);
-  }, [selected, nameById, performances, popularity]);
+    return predictRace(Array.from(selected), nameById, performances, popularity, odds);
+  }, [selected, nameById, performances, popularity, odds]);
 
   if (uniqueHorses.length === 0) {
     return <p>まず下のフォームから馬の前走データを登録してください。</p>;
@@ -68,8 +73,12 @@ export default function RacePredictor({ performances }: { performances: PastPerf
       </label>
 
       <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 4 }}>
-        出走する馬を選んでください（2頭以上）。人気（何番人気か）も入力すると、
-        単勝・複勝・ワイド・3連複それぞれの買い目を回収率重視で提案します。
+        出走する馬を選んでください（2頭以上）。人気（何番人気か）を入力すると単勝・複勝・3連複を、
+        単勝オッズも入力するとワイドの穴（オッズ{" "}
+        <strong>
+          8〜10倍
+        </strong>
+        ゾーン）を回収率重視で提案します。
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
         {uniqueHorses.map((h) => (
@@ -95,14 +104,25 @@ export default function RacePredictor({ performances }: { performances: PastPerf
               {h.horseName}
             </label>
             {selected.has(h.horseId) && (
-              <input
-                type="number"
-                min={1}
-                placeholder="人気"
-                value={popularity.get(h.horseId) ?? ""}
-                onChange={(e) => setHorsePopularity(h.horseId, e.target.value)}
-                style={{ width: 60 }}
-              />
+              <>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="人気"
+                  value={popularity.get(h.horseId) ?? ""}
+                  onChange={(e) => setNumericField(setPopularity, h.horseId, e.target.value)}
+                  style={{ width: 60 }}
+                />
+                <input
+                  type="number"
+                  min={1}
+                  step="0.1"
+                  placeholder="単勝オッズ"
+                  value={odds.get(h.horseId) ?? ""}
+                  onChange={(e) => setNumericField(setOdds, h.horseId, e.target.value)}
+                  style={{ width: 80 }}
+                />
+              </>
             )}
           </div>
         ))}
@@ -116,6 +136,7 @@ export default function RacePredictor({ performances }: { performances: PastPerf
                 <th>順位</th>
                 <th>馬名</th>
                 <th>人気</th>
+                <th>単勝オッズ</th>
                 <th>真の実力スコア</th>
                 <th>不利補正</th>
               </tr>
@@ -126,6 +147,7 @@ export default function RacePredictor({ performances }: { performances: PastPerf
                   <td>{i + 1}</td>
                   <td>{s.horseName}</td>
                   <td>{popularity.get(s.horseId) ?? "―"}</td>
+                  <td>{odds.get(s.horseId) ?? "―"}</td>
                   <td>{s.avgAdjustedScore.toFixed(1)}</td>
                   <td>{s.avgLuckAdjustment > 0 ? `+${s.avgLuckAdjustment.toFixed(1)}` : "-"}</td>
                 </tr>
