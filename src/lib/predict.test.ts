@@ -60,10 +60,50 @@ describe("predictRace", () => {
     const result = predictRace(ENTRANTS, nameById, samplePastPerformances, popularity, odds);
     const { win, place, wide } = result.bettingPlan;
 
+    // ハヤテオウジの9.0倍はワイドの基準(8倍)は満たすが、単勝・複勝の基準(10倍)には届かない
     expect(win!.horse.horseId).toBe("horse-sunrise-hope");
     expect(place!.horse.horseId).toBe("horse-sunrise-hope");
     expect(wide!.longshot.horseId).toBe("horse-hayate-oji");
     expect(wide!.reason).toContain("単勝9.0倍");
+  });
+
+  it("picks win/place directly from the 10倍以上 odds zone when a horse clears it", () => {
+    const popularity = new Map([
+      ["horse-kiseki-no-hoshi", 1],
+      ["horse-hayate-oji", 2],
+      ["horse-sunrise-hope", 5],
+    ]);
+    const odds = new Map([
+      ["horse-hayate-oji", 12.0],
+      ["horse-sunrise-hope", 3.0],
+    ]);
+
+    const result = predictRace(ENTRANTS, nameById, samplePastPerformances, popularity, odds);
+    const { win, place } = result.bettingPlan;
+
+    expect(win!.horse.horseId).toBe("horse-hayate-oji");
+    expect(place!.horse.horseId).toBe("horse-hayate-oji");
+    expect(win!.reason).toContain("単勝12.0倍");
+  });
+
+  it("falls back to the 4番人気以下 pool for win/place when nobody reaches 10倍, with a note", () => {
+    const popularity = new Map([
+      ["horse-kiseki-no-hoshi", 1],
+      ["horse-hayate-oji", 2],
+      ["horse-sunrise-hope", 5],
+    ]);
+    const odds = new Map([
+      ["horse-hayate-oji", 9.0],
+      ["horse-sunrise-hope", 9.5],
+    ]);
+
+    const result = predictRace(ENTRANTS, nameById, samplePastPerformances, popularity, odds);
+    const { win } = result.bettingPlan;
+
+    expect(win!.horse.horseId).toBe("horse-sunrise-hope");
+    expect(
+      result.notes.some((n) => n.includes("単勝10倍以上の馬がいなかったため、単勝・複勝は"))
+    ).toBe(true);
   });
 
   it("has no upper bound: a 20倍 horse still qualifies for the wide longshot pool", () => {

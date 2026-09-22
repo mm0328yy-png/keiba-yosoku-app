@@ -2,15 +2,21 @@ import { summarizeAllHorses, type HorseSummary } from "@/lib/analysis";
 import type { PastPerformance } from "@/types/race";
 
 /**
- * 単勝・複勝の「穴」候補は、この番人気以降から選ぶ。
- * 人気馬同士の組み合わせは的中率は高くても回収率が低くなりがちなので、
+ * 単勝・複勝・ワイドの「穴」候補で、オッズが分からない馬しかいない場合に使う
+ * 人気の下限。人気馬同士の組み合わせは的中率は高くても回収率が低くなりがちなので、
  * 「人気馬1頭 + 人気は低いが実力スコアが高い穴馬1頭」を狙う戦略に寄せている。
  */
 const LONGSHOT_MIN_POPULARITY_RANK = 4;
 
 /**
- * 実際のワイドオッズが分からない場合の代用として、単勝オッズがこの倍率以上の
- * 馬を「穴」候補にする（ワイド配当そのものではなく、あくまで簡易的な目安）。
+ * 単勝・複勝の「穴」候補は、単勝オッズがこの倍率以上の馬から選ぶ。
+ * 複勝は人気馬だと配当がほとんど付かないため、ワイドより厳しめの基準にしている。
+ */
+const WIN_PLACE_MIN_ODDS = 10;
+
+/**
+ * ワイドの「穴」候補は、実際のワイドオッズが分からない場合の代用として、
+ * 単勝オッズがこの倍率以上の馬にする（ワイド配当そのものではなく、あくまで簡易的な目安）。
  */
 const WIDE_LONGSHOT_MIN_ODDS = 8;
 
@@ -109,6 +115,59 @@ export function predictRace(
   return { ranked, noDataHorseNames, bettingPlan, notes };
 }
 
+interface OddsOrPopularityPick {
+  horse: HorseSummary;
+  odds: number | null;
+  popularity: number | null;
+}
+
+/**
+ * favorite を除いた候補の中から、まず単勝オッズが minOdds 倍以上の馬を優先して選び
+ * （その中で実力スコア最高の馬）、該当がなければ「popularity 番人気以下」プールに
+ * フォールバックする。
+ */
+function pickByOddsThenPopularity(
+  others: HorseSummary[],
+  oddsByHorseId: Map<string, number>,
+  popularityByHorseId: Map<string, number>,
+  minOdds: number,
+  fallbackNote: string,
+  notes: string[]
+): OddsOrPopularityPick {
+  const oddsPool = others.filter((s) => {
+    const odds = oddsByHorseId.get(s.horseId);
+    return odds !== undefined && odds >= minOdds;
+  });
+
+  if (oddsPool.length > 0) {
+    const horse = [...oddsPool].sort((a, b) => b.avgAdjustedScore - a.avgAdjustedScore)[0];
+    return {
+      horse,
+      odds: oddsByHorseId.get(horse.horseId)!,
+      popularity: popularityByHorseId.get(horse.horseId) ?? null,
+    };
+  }
+
+  if (oddsByHorseId.size > 0) notes.push(fallbackNote);
+
+  const withPopularity = others.filter((s) => popularityByHorseId.has(s.horseId));
+  const popPool = withPopularity.filter(
+    (s) => popularityByHorseId.get(s.horseId)! >= LONGSHOT_MIN_POPULARITY_RANK
+  );
+  const finalPool = popPool.length > 0 ? popPool : withPopularity.length > 0 ? withPopularity : others;
+  const horse = [...finalPool].sort((a, b) => b.avgAdjustedScore - a.avgAdjustedScore)[0];
+
+  return {
+    horse,
+    odds: oddsByHorseId.get(horse.horseId) ?? null,
+    popularity: popularityByHorseId.get(horse.horseId) ?? null,
+  };
+}
+
+function oddsOrPopularityLabel(pick: OddsOrPopularityPick): string {
+  return pick.odds !== null ? `単勝${pick.odds.toFixed(1)}倍` : `${pick.popularity ?? "?"}番人気`;
+}
+
 function buildBettingPlan(
   ranked: HorseSummary[],
   popularityByHorseId: Map<string, number>,
@@ -126,69 +185,61 @@ function buildBettingPlan(
 
   let favorite: HorseSummary;
   let favoritePopularity: number | null;
-  let winPlaceValue: HorseSummary;
-  let winPlaceValuePopularity: number | null;
-  let estimatedWideValue: HorseSummary;
-  let estimatedWideValueOdds: number | null;
-  let estimatedWideValuePopularity: number | null;
+  let winPlacePick: OddsOrPopularityPick;
+  let estimatedWidePick: OddsOrPopularityPick;
 
   if (withPopularity.length < 2) {
     notes.push("人気の入力が足りないため、実力スコア上位2頭で代用しています。");
     favorite = ranked[0];
     favoritePopularity = null;
-    winPlaceValue = ranked[1];
-    winPlaceValuePopularity = null;
-    estimatedWideValue = ranked[1];
-    estimatedWideValueOdds = oddsByHorseId.get(ranked[1].horseId) ?? null;
-    estimatedWideValuePopularity = null;
+    const fallback: OddsOrPopularityPick = {
+      horse: ranked[1],
+      odds: oddsByHorseId.get(ranked[1].horseId) ?? null,
+      popularity: null,
+    };
+    winPlacePick = fallback;
+    estimatedWidePick = fallback;
   } else {
     favorite = [...withPopularity].sort(
       (a, b) => popularityByHorseId.get(a.horseId)! - popularityByHorseId.get(b.horseId)!
     )[0];
     favoritePopularity = popularityByHorseId.get(favorite.horseId)!;
 
-    const others = withPopularity.filter((s) => s.horseId !== favorite.horseId);
-    const winPlacePool = others.filter(
-      (s) => popularityByHorseId.get(s.horseId)! >= LONGSHOT_MIN_POPULARITY_RANK
+    const others = ranked.filter((s) => s.horseId !== favorite.horseId);
+
+    winPlacePick = pickByOddsThenPopularity(
+      others,
+      oddsByHorseId,
+      popularityByHorseId,
+      WIN_PLACE_MIN_ODDS,
+      `単勝${WIN_PLACE_MIN_ODDS}倍以上の馬がいなかったため、単勝・複勝は${LONGSHOT_MIN_POPULARITY_RANK}番人気以下から代用しています。`,
+      notes
     );
-    const winPlaceFinalPool = winPlacePool.length > 0 ? winPlacePool : others;
-    winPlaceValue = [...winPlaceFinalPool].sort((a, b) => b.avgAdjustedScore - a.avgAdjustedScore)[0];
-    winPlaceValuePopularity = popularityByHorseId.get(winPlaceValue.horseId)!;
 
-    const allOthers = ranked.filter((s) => s.horseId !== favorite.horseId);
-    const oddsInRange = allOthers.filter((s) => {
-      const odds = oddsByHorseId.get(s.horseId);
-      return odds !== undefined && odds >= WIDE_LONGSHOT_MIN_ODDS;
-    });
-
-    if (oddsInRange.length > 0) {
-      estimatedWideValue = [...oddsInRange].sort((a, b) => b.avgAdjustedScore - a.avgAdjustedScore)[0];
-      estimatedWideValueOdds = oddsByHorseId.get(estimatedWideValue.horseId)!;
-      estimatedWideValuePopularity = popularityByHorseId.get(estimatedWideValue.horseId) ?? null;
-    } else {
-      if (oddsByHorseId.size > 0) {
-        notes.push(
-          `単勝${WIDE_LONGSHOT_MIN_ODDS}倍以上の馬がいなかったため、ワイドの穴も${LONGSHOT_MIN_POPULARITY_RANK}番人気以下から代用しています。`
-        );
-      }
-      estimatedWideValue = winPlaceValue;
-      estimatedWideValueOdds = oddsByHorseId.get(estimatedWideValue.horseId) ?? null;
-      estimatedWideValuePopularity = winPlaceValuePopularity;
-    }
+    estimatedWidePick = pickByOddsThenPopularity(
+      others,
+      oddsByHorseId,
+      popularityByHorseId,
+      WIDE_LONGSHOT_MIN_ODDS,
+      `単勝${WIDE_LONGSHOT_MIN_ODDS}倍以上の馬がいなかったため、ワイドの穴も${LONGSHOT_MIN_POPULARITY_RANK}番人気以下から代用しています。`,
+      notes
+    );
   }
 
   const win: SingleBetPick = {
-    horse: winPlaceValue,
-    reason: `${winPlaceValue.horseName}は${
-      winPlaceValuePopularity ?? "?"
-    }番人気ながら実力スコア${winPlaceValue.avgAdjustedScore.toFixed(
+    horse: winPlacePick.horse,
+    reason: `${winPlacePick.horse.horseName}は${oddsOrPopularityLabel(
+      winPlacePick
+    )}ながら実力スコア${winPlacePick.horse.avgAdjustedScore.toFixed(
       1
-    )}点。人気馬の単勝は妙味が薄いため、期待値重視でこちらを本命視。`,
+    )}点。単勝${WIN_PLACE_MIN_ODDS}倍未満の人気馬は妙味が薄いため、期待値重視でこちらを本命視。`,
   };
 
   const place: SingleBetPick = {
-    horse: winPlaceValue,
-    reason: `本命人気（${favorite.horseName}）の複勝は配当が小さくなりがちなので見送り、${winPlaceValue.horseName}の複勝で回収率を狙う。`,
+    horse: winPlacePick.horse,
+    reason: `本命人気（${favorite.horseName}）の複勝は配当が小さくなりがちなので見送り、${
+      winPlacePick.horse.horseName
+    }（${oddsOrPopularityLabel(winPlacePick)}）の複勝で回収率を狙う。`,
   };
 
   const realWide = pickWideFromRealOdds(ranked, wideOddsByPair, popularityByHorseId, notes);
@@ -203,19 +254,14 @@ function buildBettingPlan(
       )}点） − ${realWide.second.horseName}（実力スコア${realWide.second.avgAdjustedScore.toFixed(1)}点）`,
     };
   } else {
-    const estimatedWideValueLabel =
-      estimatedWideValueOdds !== null
-        ? `単勝${estimatedWideValueOdds.toFixed(1)}倍`
-        : `${estimatedWideValuePopularity ?? "?"}番人気`;
-
     wide = {
       favorite,
-      longshot: estimatedWideValue,
+      longshot: estimatedWidePick.horse,
       reason: `本命: ${favorite.horseName}（${
         favoritePopularity ?? "?"
       }番人気 / 実力スコア${favorite.avgAdjustedScore.toFixed(1)}点） + 穴: ${
-        estimatedWideValue.horseName
-      }（${estimatedWideValueLabel}・実力スコア${estimatedWideValue.avgAdjustedScore.toFixed(
+        estimatedWidePick.horse.horseName
+      }（${oddsOrPopularityLabel(estimatedWidePick)}・実力スコア${estimatedWidePick.horse.avgAdjustedScore.toFixed(
         1
       )}点、単勝オッズからの推定）`,
     };

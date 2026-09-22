@@ -109,8 +109,9 @@ export default function RacePredictor({
       </label>
 
       <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 4 }}>
-        出走する馬を選んでください（2頭以上）。人気（何番人気か）を入力すると単勝・複勝・3連複を、
-        単勝オッズも入力するとワイドの穴（オッズ<strong>8倍以上</strong>）を回収率重視で提案します。
+        出走する馬を選んでください（2頭以上）。人気（何番人気か）だけでも単勝・複勝・3連複を提案しますが、
+        単勝オッズも入力すると単勝・複勝は<strong>10倍以上</strong>、ワイドの穴は<strong>8倍以上</strong>
+        のゾーンから、回収率重視で選ぶようになります。
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
         {uniqueHorses.map((h) => (
