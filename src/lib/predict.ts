@@ -9,11 +9,10 @@ import type { PastPerformance } from "@/types/race";
 const LONGSHOT_MIN_POPULARITY_RANK = 4;
 
 /**
- * ワイドの「穴」候補は、単勝オッズがこの範囲にある馬から選ぶ。
+ * ワイドの「穴」候補は、単勝オッズがこの倍率以上の馬から選ぶ。
  * オッズが分からない馬しかいない場合は LONGSHOT_MIN_POPULARITY_RANK にフォールバックする。
  */
-const WIDE_LONGSHOT_ODDS_MIN = 8;
-const WIDE_LONGSHOT_ODDS_MAX = 10;
+const WIDE_LONGSHOT_MIN_ODDS = 8;
 
 export interface SingleBetPick {
   horse: HorseSummary;
@@ -23,7 +22,7 @@ export interface SingleBetPick {
 export interface WidePick {
   /** 人気馬側の軸 */
   favorite: HorseSummary;
-  /** オッズ8〜10倍ゾーンから選ぶ穴馬側の軸 */
+  /** オッズ8倍以上のゾーンから選ぶ穴馬側の軸 */
   longshot: HorseSummary;
   reason: string;
 }
@@ -39,7 +38,7 @@ export interface BettingPlan {
   win: SingleBetPick | null;
   /** 複勝: 人気馬は配当妙味が薄いため、こちらも「穴」側を本命視する */
   place: SingleBetPick | null;
-  /** ワイド: 人気馬1頭 + オッズ8〜10倍ゾーンの穴馬1頭 */
+  /** ワイド: 人気馬1頭 + オッズ8倍以上の穴馬1頭 */
   wide: WidePick | null;
   /** 3連複: 真の実力スコア上位3頭のBOX */
   trio: TrioPick | null;
@@ -61,7 +60,7 @@ export interface RacePrediction {
  *
  * popularityByHorseId が十分に揃っていない場合（人気を入力した馬が2頭未満）は
  * 人気馬/穴馬の判定ができないため、真の実力スコア上位2頭にフォールバックする。
- * oddsByHorseId が与えられていれば、ワイドの穴はオッズ8〜10倍ゾーンから選ぶ。
+ * oddsByHorseId が与えられていれば、ワイドの穴はオッズ8倍以上のゾーンから選ぶ。
  */
 export function predictRace(
   entrantHorseIds: string[],
@@ -143,7 +142,7 @@ function buildBettingPlan(
     const allOthers = ranked.filter((s) => s.horseId !== favorite.horseId);
     const oddsInRange = allOthers.filter((s) => {
       const odds = oddsByHorseId.get(s.horseId);
-      return odds !== undefined && odds >= WIDE_LONGSHOT_ODDS_MIN && odds <= WIDE_LONGSHOT_ODDS_MAX;
+      return odds !== undefined && odds >= WIDE_LONGSHOT_MIN_ODDS;
     });
 
     if (oddsInRange.length > 0) {
@@ -153,7 +152,7 @@ function buildBettingPlan(
     } else {
       if (oddsByHorseId.size > 0) {
         notes.push(
-          `単勝${WIDE_LONGSHOT_ODDS_MIN}〜${WIDE_LONGSHOT_ODDS_MAX}倍の馬がいなかったため、ワイドの穴も${LONGSHOT_MIN_POPULARITY_RANK}番人気以下から代用しています。`
+          `単勝${WIDE_LONGSHOT_MIN_ODDS}倍以上の馬がいなかったため、ワイドの穴も${LONGSHOT_MIN_POPULARITY_RANK}番人気以下から代用しています。`
         );
       }
       wideValue = winPlaceValue;

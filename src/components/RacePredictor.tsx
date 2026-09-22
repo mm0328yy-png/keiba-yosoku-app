@@ -74,11 +74,7 @@ export default function RacePredictor({ performances }: { performances: PastPerf
 
       <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 4 }}>
         出走する馬を選んでください（2頭以上）。人気（何番人気か）を入力すると単勝・複勝・3連複を、
-        単勝オッズも入力するとワイドの穴（オッズ{" "}
-        <strong>
-          8〜10倍
-        </strong>
-        ゾーン）を回収率重視で提案します。
+        単勝オッズも入力するとワイドの穴（オッズ<strong>8倍以上</strong>）を回収率重視で提案します。
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
         {uniqueHorses.map((h) => (

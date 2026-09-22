@@ -44,17 +44,17 @@ describe("predictRace", () => {
     expect(trio!.horses).toHaveLength(3);
   });
 
-  it("picks the wide longshot from the 8〜10倍 odds zone even when it differs from the win/place pick", () => {
+  it("picks the wide longshot from the 8倍以上 odds zone even when it differs from the win/place pick", () => {
     const popularity = new Map([
       ["horse-kiseki-no-hoshi", 1],
       ["horse-hayate-oji", 2],
       ["horse-sunrise-hope", 5],
     ]);
     // サンライズホープは4番人気以下プールで単複の穴になるが、オッズは圏外。
-    // ハヤテオウジは2番人気でも、オッズだけ見ると8〜10倍ゾーンに入っている想定。
+    // ハヤテオウジは2番人気でも、オッズだけ見ると8倍以上ゾーンに入っている想定。
     const odds = new Map([
       ["horse-hayate-oji", 9.0],
-      ["horse-sunrise-hope", 15.0],
+      ["horse-sunrise-hope", 3.0],
     ]);
 
     const result = predictRace(ENTRANTS, nameById, samplePastPerformances, popularity, odds);
@@ -66,7 +66,23 @@ describe("predictRace", () => {
     expect(wide!.reason).toContain("単勝9.0倍");
   });
 
-  it("falls back to the popularity-based pool when nobody's odds land in 8〜10倍", () => {
+  it("has no upper bound: a 20倍 horse still qualifies for the wide longshot pool", () => {
+    const popularity = new Map([
+      ["horse-kiseki-no-hoshi", 1],
+      ["horse-hayate-oji", 2],
+      ["horse-sunrise-hope", 5],
+    ]);
+    // ハヤテオウジにはオッズ情報がなく、オッズが分かるのはサンライズホープの20倍だけ。
+    const odds = new Map([["horse-sunrise-hope", 20.0]]);
+
+    const result = predictRace(ENTRANTS, nameById, samplePastPerformances, popularity, odds);
+    const { wide } = result.bettingPlan;
+
+    expect(wide!.longshot.horseId).toBe("horse-sunrise-hope");
+    expect(wide!.reason).toContain("単勝20.0倍");
+  });
+
+  it("falls back to the popularity-based pool when nobody's odds reach 8倍", () => {
     const popularity = new Map([
       ["horse-kiseki-no-hoshi", 1],
       ["horse-hayate-oji", 2],
@@ -74,7 +90,7 @@ describe("predictRace", () => {
     ]);
     const odds = new Map([
       ["horse-hayate-oji", 3.0],
-      ["horse-sunrise-hope", 25.0],
+      ["horse-sunrise-hope", 5.0],
     ]);
 
     const result = predictRace(ENTRANTS, nameById, samplePastPerformances, popularity, odds);
