@@ -7,6 +7,7 @@ import type { PastPerformance } from "@/types/race";
 export default function RacePredictor({ performances }: { performances: PastPerformance[] }) {
   const [raceName, setRaceName] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [popularity, setPopularity] = useState<Map<string, number>>(new Map());
 
   const uniqueHorses = useMemo(() => {
     const map = new Map<string, string>();
@@ -32,10 +33,23 @@ export default function RacePredictor({ performances }: { performances: PastPerf
     });
   };
 
+  const setHorsePopularity = (horseId: string, value: string) => {
+    setPopularity((prev) => {
+      const next = new Map(prev);
+      const num = Number(value);
+      if (value === "" || Number.isNaN(num)) {
+        next.delete(horseId);
+      } else {
+        next.set(horseId, num);
+      }
+      return next;
+    });
+  };
+
   const prediction = useMemo(() => {
     if (selected.size < 2) return null;
-    return predictRace(Array.from(selected), nameById, performances);
-  }, [selected, nameById, performances]);
+    return predictRace(Array.from(selected), nameById, performances, popularity);
+  }, [selected, nameById, performances, popularity]);
 
   if (uniqueHorses.length === 0) {
     return <p>まず下のフォームから馬の前走データを登録してください。</p>;
@@ -53,29 +67,44 @@ export default function RacePredictor({ performances }: { performances: PastPerf
         />
       </label>
 
-      <p style={{ color: "var(--muted)", fontSize: 14 }}>出走する馬を選んでください（2頭以上）</p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+      <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 4 }}>
+        出走する馬を選んでください（2頭以上）。人気（何番人気か）も入力すると、
+        「本命1頭 + 穴馬1頭」で回収率重視のワイドを提案します。
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
         {uniqueHorses.map((h) => (
-          <label
+          <div
             key={h.horseId}
             style={{
-              flexDirection: "row",
+              display: "flex",
               alignItems: "center",
-              gap: 6,
+              gap: 10,
               border: "1px solid var(--border)",
               borderRadius: 6,
               padding: "6px 10px",
-              cursor: "pointer",
               background: selected.has(h.horseId) ? "rgba(79,140,255,0.15)" : "transparent",
+              width: "fit-content",
             }}
           >
-            <input
-              type="checkbox"
-              checked={selected.has(h.horseId)}
-              onChange={() => toggle(h.horseId)}
-            />
-            {h.horseName}
-          </label>
+            <label style={{ flexDirection: "row", alignItems: "center", gap: 6, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={selected.has(h.horseId)}
+                onChange={() => toggle(h.horseId)}
+              />
+              {h.horseName}
+            </label>
+            {selected.has(h.horseId) && (
+              <input
+                type="number"
+                min={1}
+                placeholder="人気"
+                value={popularity.get(h.horseId) ?? ""}
+                onChange={(e) => setHorsePopularity(h.horseId, e.target.value)}
+                style={{ width: 60 }}
+              />
+            )}
+          </div>
         ))}
       </div>
 
@@ -86,6 +115,7 @@ export default function RacePredictor({ performances }: { performances: PastPerf
               <tr>
                 <th>順位</th>
                 <th>馬名</th>
+                <th>人気</th>
                 <th>真の実力スコア</th>
                 <th>不利補正</th>
               </tr>
@@ -95,6 +125,7 @@ export default function RacePredictor({ performances }: { performances: PastPerf
                 <tr key={s.horseId}>
                   <td>{i + 1}</td>
                   <td>{s.horseName}</td>
+                  <td>{popularity.get(s.horseId) ?? "―"}</td>
                   <td>{s.avgAdjustedScore.toFixed(1)}</td>
                   <td>{s.avgLuckAdjustment > 0 ? `+${s.avgLuckAdjustment.toFixed(1)}` : "-"}</td>
                 </tr>
@@ -119,8 +150,8 @@ export default function RacePredictor({ performances }: { performances: PastPerf
               }}
             >
               <strong>
-                {raceName ? `${raceName} の` : ""}ワイド本命候補: {prediction.widePick.primary.horseName} −{" "}
-                {prediction.widePick.secondary.horseName}
+                {raceName ? `${raceName} の` : ""}本命×穴 ワイド候補: {prediction.widePick.favorite.horseName} −{" "}
+                {prediction.widePick.longshot.horseName}
               </strong>
               <p style={{ margin: "6px 0 0", fontSize: 14, color: "var(--muted)" }}>
                 {prediction.widePick.reason}

@@ -1,9 +1,18 @@
 import { summarizeAllHorses, type HorseSummary } from "@/lib/analysis";
 import type { PastPerformance } from "@/types/race";
 
+/**
+ * この番人気以降を「穴馬」候補とみなす。
+ * 人気馬同士の組み合わせは的中率は高くても回収率が低くなりがちなので、
+ * 「人気馬1頭 + 人気は低いが実力スコアが高い穴馬1頭」を狙う戦略に寄せている。
+ */
+const LONGSHOT_MIN_POPULARITY_RANK = 4;
+
 export interface WidePick {
-  primary: HorseSummary;
-  secondary: HorseSummary;
+  /** 人気馬側の軸 */
+  favorite: HorseSummary;
+  /** 人気は低いが実力スコアが高い穴馬側の軸 */
+  longshot: HorseSummary;
   reason: string;
 }
 
@@ -19,12 +28,16 @@ export interface RacePrediction {
 
 /**
  * 指定した出走馬（horseId）同士を、登録済みの前走データから比較し、
- * ワイドの軸2頭を提案する。
+ * 「人気馬1頭 + 穴馬1頭」のワイド軸を提案する。
+ *
+ * popularityByHorseId が十分に揃っていない場合（人気を入力した馬が2頭未満）は
+ * 人気馬/穴馬の判定ができないため、真の実力スコア上位2頭にフォールバックする。
  */
 export function predictRace(
   entrantHorseIds: string[],
   entrantHorseNames: Map<string, string>,
-  performances: PastPerformance[]
+  performances: PastPerformance[],
+  popularityByHorseId: Map<string, number> = new Map()
 ): RacePrediction {
   const entrantSet = new Set(entrantHorseIds);
   const relevant = performances.filter((pp) => entrantSet.has(pp.horseId));
@@ -46,17 +59,55 @@ export function predictRace(
     }
   }
 
-  let widePick: WidePick | null = null;
-  if (ranked.length >= 2) {
-    const [primary, secondary] = ranked;
-    widePick = {
-      primary,
-      secondary,
-      reason: `真の実力スコア上位2頭（${primary.horseName}: ${primary.avgAdjustedScore.toFixed(
-        1
-      )}点 / ${secondary.horseName}: ${secondary.avgAdjustedScore.toFixed(1)}点）`,
-    };
-  }
+  const widePick = pickFavoriteAndLongshot(ranked, popularityByHorseId, notes);
 
   return { ranked, noDataHorseNames, widePick, notes };
+}
+
+function pickFavoriteAndLongshot(
+  ranked: HorseSummary[],
+  popularityByHorseId: Map<string, number>,
+  notes: string[]
+): WidePick | null {
+  const withPopularity = ranked.filter((s) => popularityByHorseId.has(s.horseId));
+
+  if (withPopularity.length < 2) {
+    if (ranked.length >= 2) {
+      notes.push("人気の入力が足りないため、実力スコア上位2頭で代用しています。");
+      const [primary, secondary] = ranked;
+      return {
+        favorite: primary,
+        longshot: secondary,
+        reason: `真の実力スコア上位2頭（${primary.horseName}: ${primary.avgAdjustedScore.toFixed(
+          1
+        )}点 / ${secondary.horseName}: ${secondary.avgAdjustedScore.toFixed(1)}点）`,
+      };
+    }
+    return null;
+  }
+
+  const favorite = [...withPopularity].sort(
+    (a, b) => popularityByHorseId.get(a.horseId)! - popularityByHorseId.get(b.horseId)!
+  )[0];
+
+  const others = withPopularity.filter((s) => s.horseId !== favorite.horseId);
+  const longshotPool = others.filter(
+    (s) => popularityByHorseId.get(s.horseId)! >= LONGSHOT_MIN_POPULARITY_RANK
+  );
+  const pool = longshotPool.length > 0 ? longshotPool : others;
+
+  const longshot = [...pool].sort((a, b) => b.avgAdjustedScore - a.avgAdjustedScore)[0];
+
+  const favoritePopularity = popularityByHorseId.get(favorite.horseId)!;
+  const longshotPopularity = popularityByHorseId.get(longshot.horseId)!;
+
+  return {
+    favorite,
+    longshot,
+    reason: `本命: ${favorite.horseName}（${favoritePopularity}番人気 / 実力スコア${favorite.avgAdjustedScore.toFixed(
+      1
+    )}点） + 穴: ${longshot.horseName}（${longshotPopularity}番人気ながら実力スコア${longshot.avgAdjustedScore.toFixed(
+      1
+    )}点）`,
+  };
 }
