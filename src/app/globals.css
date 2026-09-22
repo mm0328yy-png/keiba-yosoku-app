@@ -1,0 +1,168 @@
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --border: #2a2f3a;
+  --text: #e7e9ee;
+  --muted: #9aa3b2;
+  --accent: #4f8cff;
+  --unlucky: #ffb454;
+  --good: #4fd18b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Segoe UI", sans-serif;
+}
+
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 16px 64px;
+}
+
+h1 {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+p.subtitle {
+  color: var(--muted);
+  margin-top: 0;
+  margin-bottom: 32px;
+}
+
+section {
+  margin-bottom: 40px;
+}
+
+section h2 {
+  font-size: 18px;
+  border-left: 4px solid var(--accent);
+  padding-left: 10px;
+  margin-bottom: 16px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+th, td {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge-unlucky {
+  background: rgba(255, 180, 84, 0.15);
+  color: var(--unlucky);
+}
+
+.badge-clean {
+  background: rgba(79, 209, 139, 0.12);
+  color: var(--good);
+}
+
+.score-diff {
+  color: var(--unlucky);
+  font-weight: 600;
+}
+
+form {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+input, select {
+  background: #0f1115;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.trouble-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trouble-item {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+
+button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  width: fit-content;
+}
+
+button.secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+button.danger {
+  background: transparent;
+  border: 1px solid #a33;
+  color: #ff8080;
+  padding: 6px 10px;
+}
